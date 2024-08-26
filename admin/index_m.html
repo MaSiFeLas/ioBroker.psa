@@ -14,6 +14,7 @@
         <!-- Load our own files -->
         <link rel="stylesheet" type="text/css" href="style.css" />
         <script type="text/javascript" src="words.js"></script>
+        <script type="text/javascript" src="index_m.js"></script>
 
         <script type="text/javascript">
             // This will be called by the admin adapter when the settings page loads
@@ -28,9 +29,65 @@
                         $key.prop("checked", settings[id]).on("change", () => onChange());
                     } else {
                         // do not call onChange direct, because onChange could expect some arguments
+                        
+                        if(id === 'type') {
+                            if(settings[id] === 'peugeot') {
+                                $('.cLoginLinkAP').show();
+                                $('.cLoginLinkAC').hide();
+                                $('.cLoginLinkDS').hide();
+                                $('.cLoginLinkOP').hide();
+                            }
+                            if (settings[id] === 'citroen') {
+                                $('.cLoginLinkAP').hide();
+                                $('.cLoginLinkAC').show();
+                                $('.cLoginLinkDS').hide();
+                                $('.cLoginLinkOP').hide();
+                            }
+                            if (settings[id] === 'driveds') {
+                                $('.cLoginLinkAP').hide();
+                                $('.cLoginLinkAC').hide();
+                                $('.cLoginLinkDS').show();
+                                $('.cLoginLinkOP').hide();
+                            }
+                            if (settings[id] === 'opel') {
+                                $('.cLoginLinkAP').hide();
+                                $('.cLoginLinkAC').hide();
+                                $('.cLoginLinkDS').hide();
+                                $('.cLoginLinkOP').show();
+                            }
+
+                            $('#type').on('change', function () {
+                                if($(this).val() === 'peugeot') {
+                                    $('.cLoginLinkAP').show();
+                                    $('.cLoginLinkAC').hide();
+                                    $('.cLoginLinkDS').hide();
+                                    $('.cLoginLinkOP').hide();
+                                }
+                                if ($(this).val() === 'citroen') {
+                                    $('.cLoginLinkAP').hide();
+                                    $('.cLoginLinkAC').show();
+                                    $('.cLoginLinkDS').hide();
+                                    $('.cLoginLinkOP').hide();
+                                }
+                                if ($(this).val() === 'driveds') {
+                                    $('.cLoginLinkAP').hide();
+                                    $('.cLoginLinkAC').hide();
+                                    $('.cLoginLinkDS').show();
+                                    $('.cLoginLinkOP').hide();
+                                }
+                                if ($(this).val() === 'opel') {
+                                    $('.cLoginLinkAP').hide();
+                                    $('.cLoginLinkAC').hide();
+                                    $('.cLoginLinkDS').hide();
+                                    $('.cLoginLinkOP').show();
+                                }
+                            });
+                        }
+
                         $key.val(settings[id])
                             .on("change", () => onChange())
                             .on("keyup", () => onChange());
+                        
                     }
                 });
                 onChange(false);
@@ -54,7 +111,9 @@
                 });
                 callback(obj);
             }
+
         </script>
+
     </head>
 
     <body>
@@ -89,6 +148,44 @@
                         <option value="opel">Opel</option>
                     </select>
                     <label for="type" class="translate">Type</label>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col s12">
+                    <div class="card-panel linkDesign" style="background-color:#174475;">
+                        <span class="white-text translate">After selecting vehicle type click on Login Link to login on the vendors homepage. <br>
+                                                           Signin with your login data for the PSA app. <br>
+                                                           When you see 'Login successfull', open the developper tools (F12). <br>
+                                                           Hit the final 'OK' button and find the authorization code in the network tab of the developper tools. <br>
+                                                           Copy the code and paste it to the Authorization Code prompt on this configuration page. <br> </span>
+                        <span><a style="color: #1e88e5!important;" href="https://github.com/flobz/psa_car_controller/discussions/779" target="_blank" class="translate"> *** More information here ***</a></span>
+                    </div>
+                </div>
+            </div>
+            <div hidden class="row cLoginLinkAP">
+                <div class="col s6 input-field">
+                    <a id="loginLinkAP" href="https://idpcvs.peugeot.com/am/oauth2/authorize?response_type=code&client_id=1eebc2d5-5df3-459b-a624-20abfcf82530&redirect_uri=mymap://oauth2redirect/de&scope=openid+profile&state=Drmhze6EPcv0fN_81Bj-nA&code_challenge=5C1HXuvfGjAo-6TVzy_95lQNmpAjorsngCwiD3w3VHs&code_challenge_method=S256" target="_blank">Login Page</a>
+                </div>
+            </div>
+            <div hidden class="row cLoginLinkAC">
+                <div class="col s6 input-field">
+                    <a id="loginLinkAC" href="https://idpcvs.citroen.com/am/oauth2/authorize?response_type=code&client_id=5364defc-80e6-447b-bec6-4af8d1542cae&redirect_uri=mymacsdk://oauth2redirect/de&scope=openid+profile&state=Drmhze6EPcv0fN_81Bj-nA&code_challenge=5C1HXuvfGjAo-6TVzy_95lQNmpAjorsngCwiD3w3VHs&code_challenge_method=S256" target="_blank">Login Page</a>
+                </div>
+            </div>
+            <div hidden class="row cLoginLinkDS">
+                <div class="col s6 input-field">
+                    <a id="loginLinkDS" href="https://idpcvs.myds.com/am/oauth2/authorize?response_type=code&client_id=cbf74ee7-a303-4c3d-aba3-29f5994e2dfa&redirect_uri=mymdssdk://oauth2redirect/de&scope=openid+profile&state=Drmhze6EPcv0fN_81Bj-nA&code_challenge=5C1HXuvfGjAo-6TVzy_95lQNmpAjorsngCwiD3w3VHs&code_challenge_method=S256" target="_blank">Login Page</a>
+                </div>
+            </div>
+            <div hidden class="row cLoginLinkOP">
+                <div class="col s6 input-field">
+                    <a id="loginLinkOP" href="https://idpcvs.opel.com/am/oauth2/authorize?response_type=code&client_id=07364655-93cb-4194-8158-6b035ac2c24c&redirect_uri=mymopsdk://oauth2redirect/de&scope=openid+profile&state=Drmhze6EPcv0fN_81Bj-nA&code_challenge=5C1HXuvfGjAo-6TVzy_95lQNmpAjorsngCwiD3w3VHs&code_challenge_method=S256" target="_blank">Login Page</a>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col s6 input-field">
+                    <input type="text" class="value" id="auth_code" />
+                    <label for="auth_code" class="translate">Authorization Code</label>
                 </div>
             </div>
             <div class="row">

@@ -11,6 +11,7 @@ const axios = require("axios").default;
 const https = require("https");
 const fs = require("fs");
 const { extractKeys } = require("./lib/extractKeys");
+const crypto = require('crypto');
 
 class Psa extends utils.Adapter {
   /**
@@ -24,6 +25,10 @@ class Psa extends utils.Adapter {
     this.on("ready", this.onReady.bind(this));
     this.on("unload", this.onUnload.bind(this));
 
+    this.requestClient = axios.create({
+      withCredentials: true,
+      timeout: 3 * 60 * 1000, //3min client timeout
+    });
     this.extractKeys = extractKeys;
     this.idArray = [];
     this.brands = {
@@ -35,6 +40,7 @@ class Psa extends utils.Adapter {
         siteCode: "AP_DE_ESP",
         shortBrand: "AP",
         url: "mw-ap-rp.mym.awsmpsa.com",
+        redirectUri: "mymap://oauth2redirect/de",
       },
       citroen: {
         brand: "citroen.com",
@@ -44,6 +50,7 @@ class Psa extends utils.Adapter {
         siteCode: "AC_DE_ESP",
         shortBrand: "AC",
         url: "mw-ac-rp.mym.awsmpsa.com",
+        redirectUri: "mymacsdk://oauth2redirect/de", //mymacsdk
       },
       driveds: {
         brand: "driveds.com",
@@ -53,6 +60,7 @@ class Psa extends utils.Adapter {
         siteCode: "DS_DE_ESP",
         shortBrand: "DS",
         url: "mw-ds-rp.mym.awsmpsa.com",
+        redirectUri: "mymdssdk://oauth2redirect/de",
       },
       opel: {
         brand: "opel.com",
@@ -62,6 +70,7 @@ class Psa extends utils.Adapter {
         siteCode: "OP_DE_ESP",
         shortBrand: "OP",
         url: "mw-op-rp.mym.awsmpsa.com",
+        redirectUri: "mymopsdk://oauth2redirect/de",
       },
     };
   }
@@ -77,6 +86,11 @@ class Psa extends utils.Adapter {
       return;
     }
 
+    if (!this.config.auth_code) {
+      this.log.warn("Please enter authorization code in settings");
+      return;
+    }
+
     if (this.config.interval < 0.5) {
       this.log.info("Set interval to minimum 0.5");
       this.config.interval = 0.5;
@@ -86,7 +100,8 @@ class Psa extends utils.Adapter {
       pfx: fs.readFileSync(__dirname + "/certs/mwp.dat"),
       passphrase: "y5Y2my5B",
     });
-    this.login()
+    this.loginAuthCode(this.config.auth_code)
+    //this.login()
       .then(() => {
         this.setState("info.connection", true, true);
         this.log.info("Login successful");
@@ -149,6 +164,62 @@ class Psa extends utils.Adapter {
         this.getnewApiData();
       }, this.config.interval * 60 * 1000);
     }
+  }
+
+  getAuthorizationCode() {
+    const codeChallenge = "5C1HXuvfGjAo-6TVzy_95lQNmpAjorsngCwiD3w3VHs";
+    const codeChallengeMethod = 'S256';
+
+    const authEndpoint = "https://idpcvs." + this.brands[this.config.type].brand + "/am/oauth2/authorize";
+
+    // Umleiten zur Authentifizierungsseite des Anbieters
+    const authUrl = `${authEndpoint}?response_type=code&client_id=${this.brands[this.config.type].clientId}&redirect_uri=${this.brands[this.config.type].redirectUri}&scope=openid+profile&state=Drmhze6EPcv0fN_81Bj-nA&code_challenge=${codeChallenge}&code_challenge_method=${codeChallengeMethod}`;
+
+    this.log.info("Open this link in your browser to retreive the authentication code: <br>" + authUrl);
+  }
+
+  loginAuthCode(authorization_code) {
+    return new Promise((resolve, reject) => {
+      axios({
+        method: "post",
+        url: "https://idpcvs." + this.brands[this.config.type].brand + "/am/oauth2/access_token",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Authorization: "Basic " + this.brands[this.config.type].basic,
+        },
+        data:
+          "grant_type=authorization_code&code=" +
+          encodeURIComponent(authorization_code) +
+          "&redirect_uri=" +
+          encodeURIComponent(this.brands[this.config.type].redirectUri) +
+          "&code_verifier=" +
+          encodeURIComponent('nw0c1JmU5rIszzrUOFj1BFvaqOynWrZ6ZHSVOMisZ7o')
+      })
+        .then((response) => {
+          if (!response.data) {
+            this.log.error("Login failed maybe incorrect login information");
+            reject();
+            return;
+          }
+          this.log.debug(JSON.stringify(response.data));
+          this.aToken = response.data.access_token;
+          this.rToken = response.data.refresh_token;
+          this.refreshTokenInterval = setInterval(() => {
+            this.refreshToken().catch((error) => {
+              this.log.error("Refresh token failed");
+            });
+          }, 60 * 60 * 1000);
+          resolve();
+        })
+        .catch((error) => {
+          this.log.error(error);
+          this.log.error("Login failed");
+          error.response && this.log.error(JSON.stringify(error.response.data));
+          this.config.auth_code = "";
+          this.log.error("Renew authorization code");
+          reject();
+        });
+    });
   }
 
   login() {
