@@ -17,8 +17,37 @@
         <script type="text/javascript" src="index_m.js"></script>
 
         <script type="text/javascript">
+
+            const brands = {
+                peugeot: {
+                    brand: "peugeot.com",
+                    clientId: "1eebc2d5-5df3-459b-a624-20abfcf82530",
+                    siteCode: "AP_DE_ESP",
+                    redirectUri: "mymap://oauth2redirect/de",
+                },
+                citroen: {
+                    brand: "citroen.com",
+                    clientId: "5364defc-80e6-447b-bec6-4af8d1542cae",
+                    siteCode: "AC_DE_ESP",
+                    redirectUri: "mymacsdk://oauth2redirect/de",
+                },
+                driveds: {
+                    brand: "driveds.com",
+                    clientId: "cbf74ee7-a303-4c3d-aba3-29f5994e2dfa",
+                    siteCode: "DS_DE_ESP",
+                    redirectUri: "mymdssdk://oauth2redirect/de",
+                },
+                opel: {
+                    brand: "opel.com",
+                    clientId: "07364655-93cb-4194-8158-6b035ac2c24c",
+                    siteCode: "OP_DE_ESP",
+                    redirectUri: "mymopsdk://oauth2redirect/de",
+                },
+            };
+
             // This will be called by the admin adapter when the settings page loads
             function load(settings, onChange) {
+
                 // example: select elements with id=key and class=value and insert value
                 if (!settings) return;
                 $(".value").each(function () {
@@ -31,68 +60,61 @@
                         // do not call onChange direct, because onChange could expect some arguments
                         
                         if(id === 'type') {
-                            if(settings[id] === 'peugeot') {
-                                $('.cLoginLinkAP').show();
-                                $('.cLoginLinkAC').hide();
-                                $('.cLoginLinkDS').hide();
-                                $('.cLoginLinkOP').hide();
-                            }
-                            if (settings[id] === 'citroen') {
-                                $('.cLoginLinkAP').hide();
-                                $('.cLoginLinkAC').show();
-                                $('.cLoginLinkDS').hide();
-                                $('.cLoginLinkOP').hide();
-                            }
-                            if (settings[id] === 'driveds') {
-                                $('.cLoginLinkAP').hide();
-                                $('.cLoginLinkAC').hide();
-                                $('.cLoginLinkDS').show();
-                                $('.cLoginLinkOP').hide();
-                            }
-                            if (settings[id] === 'opel') {
-                                $('.cLoginLinkAP').hide();
-                                $('.cLoginLinkAC').hide();
-                                $('.cLoginLinkDS').hide();
-                                $('.cLoginLinkOP').show();
-                            }
+                            updateLoginLink(settings[id]);
 
                             $('#type').on('change', function () {
-                                if($(this).val() === 'peugeot') {
-                                    $('.cLoginLinkAP').show();
-                                    $('.cLoginLinkAC').hide();
-                                    $('.cLoginLinkDS').hide();
-                                    $('.cLoginLinkOP').hide();
-                                }
-                                if ($(this).val() === 'citroen') {
-                                    $('.cLoginLinkAP').hide();
-                                    $('.cLoginLinkAC').show();
-                                    $('.cLoginLinkDS').hide();
-                                    $('.cLoginLinkOP').hide();
-                                }
-                                if ($(this).val() === 'driveds') {
-                                    $('.cLoginLinkAP').hide();
-                                    $('.cLoginLinkAC').hide();
-                                    $('.cLoginLinkDS').show();
-                                    $('.cLoginLinkOP').hide();
-                                }
-                                if ($(this).val() === 'opel') {
-                                    $('.cLoginLinkAP').hide();
-                                    $('.cLoginLinkAC').hide();
-                                    $('.cLoginLinkDS').hide();
-                                    $('.cLoginLinkOP').show();
-                                }
+                                updateLoginLink($(this).val());
                             });
                         }
 
-                        $key.val(settings[id])
-                            .on("change", () => onChange())
-                            .on("keyup", () => onChange());
+                        if(id !== 'code_verifier') {
+                            $key.val(settings[id])
+                                .on("change", () => onChange())
+                                .on("keyup", () => onChange());
+                        }
                         
+
                     }
                 });
                 onChange(false);
                 // reinitialize all the Materialize labels on the page if you are dynamically adding inputs:
                 if (M) M.updateTextFields();
+            }
+
+            function updateLoginLink(brandType) {
+                var authorizeEndpoint = "https://idpcvs." + brands[brandType].brand + "/am/oauth2/authorize"; //"https://idpcvs.citroen.com/am/oauth2/authorize";
+                var tokenEndpoint = "https://idpcvs." + brands[brandType].brand + "/am/oauth2/access_token"; //"https://idpcvs.citroen.com/am/oauth2/access_token";
+                var clientId = brands[brandType].clientId; //"5364defc-80e6-447b-bec6-4af8d1542cae";
+
+                var codeVerifier = generateRandomString(64);
+                
+                const challengeMethod = crypto.subtle ? "S256" : "plain"
+    
+                Promise.resolve()
+                    .then(() => {
+                        if (challengeMethod === 'S256') {
+                            return generateCodeChallenge(codeVerifier)
+                        } else {
+                            return codeVerifier
+                        }
+                    })
+                    .then(function(codeChallenge) {
+                        document.getElementById('code_verifier').value = codeVerifier;
+    
+                        var redirectUri = brands[brandType].redirectUri; //"mymacsdk://oauth2redirect/de"
+                        var args = new URLSearchParams({
+                            response_type: "code",
+                            client_id: clientId,
+                            code_challenge_method: challengeMethod,
+                            code_challenge: codeChallenge,
+                            redirect_uri: redirectUri,
+                            siteCode: brands[brandType].siteCode,
+                            scope: "openid profile",
+                            state: "Drmhze6EPcv0fN_81Bj-nA"
+                        });
+                        var a = document.getElementById('loginLinkAC');
+                        a.href = authorizeEndpoint + "?" + args;
+                });                
             }
 
             // This will be called by the admin adapter when the user presses the save button
@@ -112,6 +134,24 @@
                 callback(obj);
             }
 
+            async function generateCodeChallenge(codeVerifier) {
+                var digest = await crypto.subtle.digest("SHA-256",
+                    new TextEncoder().encode(codeVerifier));
+    
+                return btoa(String.fromCharCode(...new Uint8Array(digest)))
+                    .replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_')
+            }
+    
+            function generateRandomString(length) {
+                var text = "";
+                var possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    
+                for (var i = 0; i < length; i++) {
+                    text += possible.charAt(Math.floor(Math.random() * possible.length));
+                }
+    
+                return text;
+            }                
         </script>
 
     </head>
@@ -162,24 +202,33 @@
                     </div>
                 </div>
             </div>
-            <div hidden class="row cLoginLinkAP">
-                <div class="col s6 input-field">
-                    <a id="loginLinkAP" href="https://idpcvs.peugeot.com/am/oauth2/authorize?response_type=code&client_id=1eebc2d5-5df3-459b-a624-20abfcf82530&redirect_uri=mymap://oauth2redirect/de&scope=openid+profile&state=Drmhze6EPcv0fN_81Bj-nA&code_challenge=5C1HXuvfGjAo-6TVzy_95lQNmpAjorsngCwiD3w3VHs&code_challenge_method=S256" target="_blank">Login Page</a>
-                </div>
-            </div>
-            <div hidden class="row cLoginLinkAC">
+            <div class="row cLoginLinkAC">
                 <div class="col s6 input-field">
                     <a id="loginLinkAC" href="https://idpcvs.citroen.com/am/oauth2/authorize?response_type=code&client_id=5364defc-80e6-447b-bec6-4af8d1542cae&redirect_uri=mymacsdk://oauth2redirect/de&scope=openid+profile&state=Drmhze6EPcv0fN_81Bj-nA&code_challenge=5C1HXuvfGjAo-6TVzy_95lQNmpAjorsngCwiD3w3VHs&code_challenge_method=S256" target="_blank">Login Page</a>
                 </div>
             </div>
-            <div hidden class="row cLoginLinkDS">
+            <div hidden class="row">
                 <div class="col s6 input-field">
-                    <a id="loginLinkDS" href="https://idpcvs.myds.com/am/oauth2/authorize?response_type=code&client_id=cbf74ee7-a303-4c3d-aba3-29f5994e2dfa&redirect_uri=mymdssdk://oauth2redirect/de&scope=openid+profile&state=Drmhze6EPcv0fN_81Bj-nA&code_challenge=5C1HXuvfGjAo-6TVzy_95lQNmpAjorsngCwiD3w3VHs&code_challenge_method=S256" target="_blank">Login Page</a>
+                    <input type="text" class="value" id="code_verifier" />
+                    <label for="code_verifier" class="translate">Code Verifier</label>
                 </div>
             </div>
-            <div hidden class="row cLoginLinkOP">
+            <div hidden class="row">
                 <div class="col s6 input-field">
-                    <a id="loginLinkOP" href="https://idpcvs.opel.com/am/oauth2/authorize?response_type=code&client_id=07364655-93cb-4194-8158-6b035ac2c24c&redirect_uri=mymopsdk://oauth2redirect/de&scope=openid+profile&state=Drmhze6EPcv0fN_81Bj-nA&code_challenge=5C1HXuvfGjAo-6TVzy_95lQNmpAjorsngCwiD3w3VHs&code_challenge_method=S256" target="_blank">Login Page</a>
+                    <input type="number" class="value" id="expiresAt" />
+                    <label for="expiresAt" class="translate">Token expires at</label>
+                </div>
+            </div>
+            <div hidden class="row">
+                <div class="col s6 input-field">
+                    <input type="text" class="value" id="aToken" />
+                    <label for="aToken" class="translate">Actual token</label>
+                </div>
+            </div>
+            <div hidden class="row">
+                <div class="col s6 input-field">
+                    <input type="text" class="value" id="rToken" />
+                    <label for="rToken" class="translate">Refresh token</label>
                 </div>
             </div>
             <div class="row">

@@ -100,6 +100,10 @@
   "native": {
     "user": "",
     "password": "",
+    "code_verifier": "",
+    "expiresAt": 0,
+    "aToken": "",
+    "rToken": "",
     "auth_code": "",
     "type": "",
     "interval": 5
@@ -122,6 +126,54 @@
         "name": "Device or service connected",
         "type": "boolean",
         "read": true,
+        "write": false,
+        "def": false
+      },
+      "native": {}
+    },
+    {
+      "_id": "info.aToken",
+      "type": "state",
+      "common": {
+        "name": "Access Token",
+        "type": "string",
+        "read": false,
+        "write": false,
+        "def": false
+      },
+      "native": {}
+    },
+    {
+      "_id": "info.rToken",
+      "type": "state",
+      "common": {
+        "name": "Refresh Token",
+        "type": "string",
+        "read": false,
+        "write": false,
+        "def": false
+      },
+      "native": {}
+    },
+    {
+      "_id": "info.expiresAt",
+      "type": "state",
+      "common": {
+        "name": "Token expiration timestamp",
+        "type": "number",
+        "read": false,
+        "write": false,
+        "def": false
+      },
+      "native": {}
+    },
+    {
+      "_id": "info.code",
+      "type": "state",
+      "common": {
+        "name": "Token expiration timestamp",
+        "type": "string",
+        "read": false,
         "write": false,
         "def": false
       },

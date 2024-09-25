@@ -100,11 +100,35 @@ class Psa extends utils.Adapter {
       pfx: fs.readFileSync(__dirname + "/certs/mwp.dat"),
       passphrase: "y5Y2my5B",
     });
-    this.loginAuthCode(this.config.auth_code)
-    //this.login()
-      .then(() => {
+
+    var tmpObj = await this.getStateAsync(this.namespace + ".info.code");
+    this.code = tmpObj.val;
+    if(this.code !== this.config.auth_code) {
+      this.setState("info.code", this.config.auth_code, true);
+      this.setState("info.expiresAt", 0, true);
+    }
+
+    var tmpObj = await this.getStateAsync(this.namespace + ".info.expiresAt");
+    this.expiresAt = tmpObj.val;
+    tmpObj = await this.getStateAsync(this.namespace + ".info.aToken");
+    this.aToken = tmpObj.val;
+    tmpObj = await this.getStateAsync(this.namespace + ".info.rToken");
+    this.rToken = tmpObj.val;
+    
+      try {
+        if(Date.now() > this.expiresAt) {
+          this.log.warn("Stored token is expired");
+          throw "Stored token is expired";
+        }
+        this.log.info("Trying to reuse stored token");
+        this.refreshToken().then(() => {
+        this.refreshTokenInterval = setInterval(() => {
+          this.refreshToken().catch((error) => {
+            this.log.error("Refresh token failed");
+          });
+        }, 60 * 60 * 1000);
+
         this.setState("info.connection", true, true);
-        this.log.info("Login successful");
         this.getVehicles()
           .then(() => {
             this.idArray.forEach((element) => {
@@ -134,11 +158,52 @@ class Psa extends utils.Adapter {
           .catch(() => {
             this.log.error("Get vehicles failed");
           });
-      })
-      .catch(() => {
-        this.log.error("Login failed");
+        });
+      }
+      catch (error) {
+        this.log.error("Reuse token failed. Login again.");
         this.setState("info.connection", false, true);
-      });
+        this.loginAuthCode(this.config.auth_code)
+        //this.login()
+          .then(() => {
+            this.setState("info.connection", true, true);
+            this.log.info("Login successful");
+            this.getVehicles()
+              .then(() => {
+                this.idArray.forEach((element) => {
+                  this.getRequest(
+                    "https://api.groupe-psa.com/connectedcar/v4/user/vehicles/" + element.id + "/status",
+                    element.vin + ".status",
+                  ).catch(() => {
+                    this.log.error("Get device status failed");
+                    this.log.info("Remove device " + element.vin + " from list");
+                    const index = this.idArray.indexOf(element);
+                    if (index !== -1) {
+                      this.idArray.splice(index, 1);
+                    }
+                  });
+                });
+                this.appUpdateInterval = setInterval(() => {
+                  this.idArray.forEach((element) => {
+                    this.getRequest(
+                      "https://api.groupe-psa.com/connectedcar/v4/user/vehicles/" + element.id + "/status",
+                      element.vin + ".status",
+                    ).catch(() => {
+                      this.log.error("Get device status failed");
+                    });
+                  });
+                }, this.config.interval * 60 * 1000);
+              })
+              .catch(() => {
+                this.log.error("Get vehicles failed");
+              });
+          })
+          .catch(() => {
+            this.log.error("Login failed");
+            this.setState("info.connection", false, true);
+          });
+        }
+
     try {
       this.receiveOldApi()
         .then(() => {
@@ -193,7 +258,7 @@ class Psa extends utils.Adapter {
           "&redirect_uri=" +
           encodeURIComponent(this.brands[this.config.type].redirectUri) +
           "&code_verifier=" +
-          encodeURIComponent('nw0c1JmU5rIszzrUOFj1BFvaqOynWrZ6ZHSVOMisZ7o')
+          encodeURIComponent(this.config.code_verifier)
       })
         .then((response) => {
           if (!response.data) {
@@ -204,6 +269,51 @@ class Psa extends utils.Adapter {
           this.log.debug(JSON.stringify(response.data));
           this.aToken = response.data.access_token;
           this.rToken = response.data.refresh_token;
+          this.expiresAt = Date.now() + (response.data.expires_in*1000);
+          this.setState("info.aToken", this.aToken, true);
+          this.setState("info.rToken", this.rToken, true);
+          this.setState("info.expiresAt", this.expiresAt, true);
+          this.refreshTokenInterval = setInterval(() => {
+            this.refreshToken().catch((error) => {
+              this.log.error("Refresh token failed");
+            });
+          }, 60 * 60 * 1000);
+          resolve();
+        })
+        .catch((error) => {
+          this.log.error(error);
+          this.log.error("Login failed");
+          error.response && this.log.error(JSON.stringify(error.response.data));
+          this.config.auth_code = "";
+          this.log.error("Renew authorization code");
+          reject();
+        });
+    });
+  }
+
+  loginAuthCodeTest() {
+    return new Promise((resolve, reject) => {
+      axios({
+        method: "get",
+        url: "https://idpcvs.citroen.com/am/oauth2/authorize?response_type=code&client_id=5364defc-80e6-447b-bec6-4af8d1542cae&redirect_uri=mymacsdk://oauth2redirect/de&scope=openid+profile&state=Drmhze6EPcv0fN_81Bj-nA&code_challenge=5C1HXuvfGjAo-6TVzy_95lQNmpAjorsngCwiD3w3VHs&code_challenge_method=S256&password=vizwac-dupkaD-8rikco&username=sascha.moll@me.com",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Authorization: "Basic " + this.brands[this.config.type].basic,
+        },
+      })
+        .then((response) => {
+          if (!response.data) {
+            this.log.error("Login failed maybe incorrect login information");
+            reject();
+            return;
+          }
+          this.log.debug(JSON.stringify(response.data));
+          this.aToken = response.data.access_token;
+          this.rToken = response.data.refresh_token;
+          this.expiresAt = Date.now() + (response.data.expires_in*1000);
+          this.setState("info.aToken", this.aToken, true);
+          this.setState("info.rToken", this.rToken, true);
+          this.setState("info.expiresAt", this.expiresAt, true);
           this.refreshTokenInterval = setInterval(() => {
             this.refreshToken().catch((error) => {
               this.log.error("Refresh token failed");
@@ -249,6 +359,10 @@ class Psa extends utils.Adapter {
           this.log.debug(JSON.stringify(response.data));
           this.aToken = response.data.access_token;
           this.rToken = response.data.refresh_token;
+          this.expiresAt = Date.now() + (response.data.expires_in*1000);
+          this.setState("info.aToken", this.aToken, true);
+          this.setState("info.rToken", this.rToken, true);
+          this.setState("info.expiresAt", this.expiresAt, true);
           this.refreshTokenInterval = setInterval(() => {
             this.refreshToken().catch((error) => {
               this.log.error("Refresh token failed");
