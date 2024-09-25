@@ -81,6 +81,15 @@ class Psa extends utils.Adapter {
   async onReady() {
     // Initialize your adapter here
 
+    /*var tmpObj = await this.getStateAsync(this.namespace + ".info.code");
+    if(!tmpObj) {
+      this.setState("info.code", "", true);
+      this.setState("info.expiresAt", 0, true);
+      this.setState("info.aToken", "", true);
+      this.setState("info.rToken", "", true);
+    }*/
+
+    
     if (!this.config.type) {
       this.log.warn("Please select type in settings");
       return;

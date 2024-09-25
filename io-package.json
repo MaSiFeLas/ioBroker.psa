@@ -92,7 +92,7 @@
         "admin": ">=4.0.9"
       }
     ],
-    "installedFrom": "MaSiFeLas/ioBroker.psa#1d8655223fa66ed1c825386ac2e4d32dc51f8064"
+    "installedFrom": "MaSiFeLas/ioBroker.psa#748d47f00a73200d049329147a43de2a1c2d8817"
   },
   "encryptedNative": [
     "password"
@@ -142,7 +142,7 @@
         "type": "string",
         "read": false,
         "write": false,
-        "def": false
+        "def": ""
       },
       "native": {}
     },
@@ -154,7 +154,7 @@
         "type": "string",
         "read": false,
         "write": false,
-        "def": false
+        "def": ""
       },
       "native": {}
     },
@@ -166,7 +166,7 @@
         "type": "number",
         "read": false,
         "write": false,
-        "def": false
+        "def": 0
       },
       "native": {}
     },
@@ -178,7 +178,7 @@
         "type": "string",
         "read": false,
         "write": false,
-        "def": false
+        "def": ""
       },
       "native": {}
     }
