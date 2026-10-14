@@ -23,4 +23,4 @@ The repository already has `.github/workflows/test-and-release.yml`, using ioBro
 
 ## Release status and outstanding gates
 
-No version was bumped and no release was created or published. The implementation is recorded in local commits `6d076ed` and `b1deea6`; neither has been pushed. The npm pack dry-run confirmed the retired certificate bundle is excluded from the package. Before beta/stable release, run the integration test, Repository Checker, and a disposable ioBroker configuration/object snapshot comparison. Live API validation across brands and a full legacy object snapshot comparison remain unverified.
+The adapter version is bumped to `0.0.15` for the next patch candidate. No release was created or published. The implementation is recorded in local commits `6d076ed` and `b1deea6`; neither has been pushed. The npm pack dry-run confirmed the retired certificate bundle is excluded from the package. Before beta/stable release, run the integration test, Repository Checker, and a disposable ioBroker configuration/object snapshot comparison. Live API validation across brands and a full legacy object snapshot comparison remain unverified.

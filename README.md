@@ -27,7 +27,7 @@ See [docs/compatibility-report.md](docs/compatibility-report.md) for the current
 
 ## Changelog
 
-### Unreleased
+### 0.0.15
 
 - Hardened v4 session refresh, polling recovery, and shutdown cancellation.
 - Preserved existing native settings and documented upgrade/rollback behavior.
