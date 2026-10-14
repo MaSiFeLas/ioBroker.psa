@@ -10,7 +10,7 @@ Validation run in `C:\Sascha\ioBroker.psa` on 2026-10-14:
 | --- | --- |
 | `npm test` | Passed: 16 JavaScript tests and 38 package validation checks. |
 | `npm run lint` | Passed. |
-| `npm run check` | Failed with TypeScript diagnostics across JavaScript JSDoc/auth/transport/adapter typings and test globals/types. This is not currently a CI gate; the exact output is available in the run log. |
+| `npm run check` | Passed after adding runtime JSDoc contracts and narrowing error handling. `tsconfig.check.json` checks runtime JavaScript while excluding Mocha test files and skips third-party declaration-file checking; tests are covered by `npm test`. |
 | `npm run test:integration` | Attempted; the harness selected `iobroker.js-controller@8.0.0-alpha.6`, which requires Node.js `>=22.19.0`; this terminal runs Node.js `20.16.0`. Setup then failed because the temporary controller data directory was not initialized. The user's ioBroker instance was not involved. |
 | ioBroker Repository Checker | Not run; checker is not installed in this workspace. |
 | Live Stellantis login / refresh / polling | Not repeated for this step; no credentials or live API test used. |
@@ -23,4 +23,4 @@ The repository already has `.github/workflows/test-and-release.yml`, using ioBro
 
 ## Release status and outstanding gates
 
-No version was bumped, no release was created or published, and no commit/push was performed. The npm pack dry-run confirmed the retired certificate bundle is excluded from the package. Before beta/stable release, run the integration test, Repository Checker, and a disposable ioBroker configuration/object snapshot comparison. Live API validation across brands and a full legacy object snapshot comparison remain unverified.
+No version was bumped and no release was created or published. The implementation is recorded in local commits `6d076ed` and `b1deea6`; neither has been pushed. The npm pack dry-run confirmed the retired certificate bundle is excluded from the package. Before beta/stable release, run the integration test, Repository Checker, and a disposable ioBroker configuration/object snapshot comparison. Live API validation across brands and a full legacy object snapshot comparison remain unverified.

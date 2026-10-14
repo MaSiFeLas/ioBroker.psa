@@ -16,13 +16,31 @@ const { createPollingService } = require("./lib/polling");
 const { normalizeInterval, parseStoredSession } = require("./lib/settings");
 
 function getSafeErrorDescription(error) {
-  if (error && error.response && Number.isFinite(error.response.status)) {
-    return "HTTP " + error.response.status;
+  if (error && typeof error === "object" && "response" in error) {
+    const response = error.response;
+    if (response && typeof response === "object" && "status" in response && Number.isFinite(response.status)) {
+      return "HTTP " + response.status;
+    }
   }
-  if (error && error.code === "ERR_CANCELED") {
+  if (error && typeof error === "object" && "code" in error && error.code === "ERR_CANCELED") {
     return "request canceled";
   }
   return "network or request error";
+}
+
+function getErrorResponseCode(error) {
+  if (!error || typeof error !== "object" || !("response" in error)) {
+    return undefined;
+  }
+  const response = error.response;
+  if (!response || typeof response !== "object" || !("data" in response)) {
+    return undefined;
+  }
+  const data = response.data;
+  if (!data || typeof data !== "object" || !("code" in data)) {
+    return undefined;
+  }
+  return data.code;
 }
 
 class Psa extends utils.Adapter {
@@ -40,11 +58,16 @@ class Psa extends utils.Adapter {
     this.json2iob = new Json2iob(this);
     this.idArray = [];
     this.session = {};
+    /** @type {ReturnType<typeof createAuthService> | null} */
     this.authService = null;
     this.transport = null;
+    /** @type {ReturnType<typeof createVehicleService> | null} */
+    this.vehicleService = null;
     this.pollingService = null;
     this.lifecycleAbortController = null;
     this.isUnloading = false;
+    /** @type {NodeJS.Timeout | undefined} */
+    this.refreshTokenInterval = undefined;
     this.brands = {
       peugeot: {
         brand: "peugeot.com",
@@ -135,7 +158,12 @@ class Psa extends utils.Adapter {
           this.setState("auth.session", JSON.stringify(session), true);
         },
       },
-      log: this,
+      log: {
+        info: (message) => this.log.info(message),
+        debug: (message) => this.log.debug(message),
+        warn: (message) => this.log.warn(message),
+        error: (message) => this.log.error(message),
+      },
     });
 
     this.transport = createPsaTransport({
@@ -217,10 +245,21 @@ class Psa extends utils.Adapter {
   async loginAuthCode() {
     //check if auth code is a url and extract code or if it is a code
     if (this.config.auth_code.includes("code=")) {
-      this.config.auth_code = new URL(this.config.auth_code).searchParams.get("code");
+      const code = new URL(this.config.auth_code).searchParams.get("code");
+      if (!code) {
+        this.log.error("Authorization URL does not contain a code parameter");
+        this.config.auth_code = "";
+        return;
+      }
+      this.config.auth_code = code;
+    }
+    const authService = this.authService;
+    if (!authService) {
+      this.log.error("Authentication service is not initialized");
+      return;
     }
     try {
-      const session = await this.authService.exchangeAuthorizationCode(
+      const session = await authService.exchangeAuthorizationCode(
         this.config.auth_code,
         this.brands[this.config.type].redirectUri,
       );
@@ -232,9 +271,7 @@ class Psa extends utils.Adapter {
       this.session = session;
       this.setState("auth.session", JSON.stringify(session), true);
     } catch (error) {
-      this.log.error(error);
-      this.log.error("Login failed");
-      error.response && this.log.error(JSON.stringify(error.response.data));
+      this.log.error("Login failed: " + getSafeErrorDescription(error));
       this.config.auth_code = "";
       this.log.error("Renew authorization code");
     }
@@ -278,7 +315,11 @@ class Psa extends utils.Adapter {
 
   async getVehicles(signal) {
     try {
-      const response = await this.vehicleService.listVehicles(signal);
+      const vehicleService = this.vehicleService;
+      if (!vehicleService) {
+        throw new Error("Vehicle service is not initialized");
+      }
+      const response = await vehicleService.listVehicles(signal);
       if (!response || !response._embedded || !Array.isArray(response._embedded.vehicles)) {
         throw new Error("Vehicle list response did not include a vehicle array");
       }
@@ -301,7 +342,7 @@ class Psa extends utils.Adapter {
           native: {},
         });
 
-        await this.vehicleService.getVehicleDetails(element.id, element.vin, signal).catch((error) => {
+        await vehicleService.getVehicleDetails(element.id, element.vin, signal).catch((error) => {
           if (!this.isUnloading && !(signal && signal.aborted)) {
             this.log.error("Get vehicle details failed: " + getSafeErrorDescription(error));
           }
@@ -314,7 +355,7 @@ class Psa extends utils.Adapter {
       }
       this.setState("info.connection", false, true);
       this.log.error("Get vehicles failed: " + getSafeErrorDescription(error));
-      if (error.response && error.response.data && error.response.data.code && error.response.data.code === 40410) {
+      if (getErrorResponseCode(error) === 40410) {
         this.log.error("No compatible vehicles found. Only electric cars are available for new api.");
       }
       return false;
@@ -323,7 +364,11 @@ class Psa extends utils.Adapter {
 
   async getRequest(vehicleId, path, signal) {
     try {
-      await this.vehicleService.getVehicleStatus(vehicleId, path.split(".")[0], signal);
+      const vehicleService = this.vehicleService;
+      if (!vehicleService) {
+        throw new Error("Vehicle service is not initialized");
+      }
+      await vehicleService.getVehicleStatus(vehicleId, path.split(".")[0], signal);
       if (this.isUnloading || (signal && signal.aborted)) {
         return false;
       }
@@ -350,7 +395,7 @@ class Psa extends utils.Adapter {
     if (this.lifecycleAbortController) {
       this.lifecycleAbortController.abort();
     }
-    this.clearInterval(this.refreshTokenInterval);
+    clearInterval(this.refreshTokenInterval);
     try {
       if (this.config.auth_code) {
         const adapterSettings = await this.getForeignObjectAsync("system.adapter." + this.namespace);
